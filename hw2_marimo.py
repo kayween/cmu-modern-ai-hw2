@@ -13,7 +13,7 @@
 
 import marimo
 
-__generated_with = "0.19.9"
+__generated_with = "0.19.11"
 app = marimo.App(width="medium")
 
 with app.setup(hide_code=True):
@@ -23,13 +23,13 @@ with app.setup(hide_code=True):
     import subprocess
 
     # Run this cell to download and install the necessary modules for the homework
-    subprocess.call(
-        [
-            "wget",
-            "-nc",
-            "https://raw.githubusercontent.com/modernaicourse/hw2/refs/heads/main/hw2_tests.py",
-        ]
-    )
+    # subprocess.call(
+    #     [
+    #         "wget",
+    #         "-nc",
+    #         "https://raw.githubusercontent.com/modernaicourse/hw2/refs/heads/main/hw2_tests.py",
+    #     ]
+    # )
 
     import os
     import mugrade
@@ -73,7 +73,7 @@ def _():
 @app.cell
 def _():
     os.environ["MUGRADE_HW"] = "Homework 2"
-    os.environ["MUGRADE_KEY"] = ""  ### Your key here
+    # os.environ["MUGRADE_KEY"] = ""  ### Your key here
     return
 
 
@@ -310,9 +310,11 @@ class Add(Function):
     Implements addition between two variables f(x,y) = x + y
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def forward(self, x, y):
+        return x + y
+
+    def backward(self, grad, x, y):
+        return [grad, grad]
 
 
 @app.function(hide_code=True)
@@ -339,9 +341,11 @@ class Subtract(Function):
     Implements subtraction between two variables f(x,y) = x - y
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def forward(self, x, y):
+        return x - y
+
+    def backward(self, grad, x, y):
+        return [grad, -grad]
 
 
 @app.function(hide_code=True)
@@ -368,9 +372,11 @@ class Divide(Function):
     Implements division between two variables f(x,y) = x / y
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def forward(self, x, y):
+        return x / y
+
+    def backward(self, grad, x, y):
+        return [grad / y, -1 * grad * x / y**2]
 
 
 @app.function(hide_code=True)
@@ -405,9 +411,14 @@ class Power(Function):
     one).
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def __init__(self, d):
+        self.d = d
+
+    def forward(self, x):
+        return x**self.d
+
+    def backward(self, grad, x):
+        return [self.d * x ** (self.d - 1) * grad]
 
 
 @app.function(hide_code=True)
@@ -435,9 +446,11 @@ class Log(Function):
     use calls from the math package to implement this.
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def forward(self, x):
+        return math.log(x)
+
+    def backward(self, grad, x):
+        return [grad / x]
 
 
 @app.function(hide_code=True)
@@ -465,9 +478,11 @@ class Exp(Function):
     calls from the math package to implement this.
     """
 
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    def forward(self, x):
+        return math.exp(x)
+
+    def backward(self, grad, x):
+        return [math.exp(x) * grad]
 
 
 @app.function(hide_code=True)
@@ -595,9 +610,25 @@ def compute_gradients(self):
     the `Variable` objects, populating the `.grad` variables as needed
     and calling the function recursively on its parents as needed.
     """
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+
+    if self.grad is None:  # the output node
+        self.grad = 1.0
+
+    if self.function is None:  # leaf nodes
+        return
+
+    grads = self.function.backward(self.grad, *[p.value for p in self.parents])
+
+    for grad, p in zip(grads, self.parents):
+        if p.grad is None:
+            p.grad = 0
+
+        p.grad += grad
+        p.num_children -= 1
+
+    for p in self.parents:
+        if p.num_children == 0:
+            p.compute_gradients()
 
 
 @app.cell
@@ -613,9 +644,7 @@ def test_compute_gradients_local():
 
 @app.cell(hide_code=True)
 def _():
-    submit_compute_gradients_button = mo.ui.run_button(
-        label="submit `compute_gradients`"
-    )
+    submit_compute_gradients_button = mo.ui.run_button(label="submit `compute_gradients`")
     submit_compute_gradients_button
     return (submit_compute_gradients_button,)
 
@@ -731,9 +760,11 @@ def cross_entropy_loss(y_pred, y):
         scalar torch.Tensor[float] - average cross entropy loss of the predicted
                                      outputs
     """
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    n, k = y_pred.shape
+    indices = torch.arange(n, dtype=torch.long, device=y_pred.device)
+
+    loss = -y_pred[indices, y] + torch.logsumexp(y_pred, dim=-1)
+    return loss.mean()
 
 
 @app.function(hide_code=True)
@@ -743,9 +774,7 @@ def test_cross_entropy_loss_local():
 
 @app.cell(hide_code=True)
 def _():
-    submit_cross_entropy_loss_button = mo.ui.run_button(
-        label="submit `cross_entropy_loss`"
-    )
+    submit_cross_entropy_loss_button = mo.ui.run_button(label="submit `cross_entropy_loss`")
     submit_cross_entropy_loss_button
     return (submit_cross_entropy_loss_button,)
 
@@ -773,9 +802,9 @@ def error(y_pred, y):
     Output:
         scalar torch.Tensor[float] - average error of the predicted outputs
     """
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    prediction = y_pred.argmax(dim=-1)
+
+    return 1 - (prediction == y).float().mean()
 
 
 @app.function(hide_code=True)
@@ -825,9 +854,25 @@ def train_sgd(X, y, epochs, step_size, batch_size):
     Output:
         2D torch.tensor[float] (k x n) - trained linear classifier
     """
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
+    _, n = X.shape
+    k = int(y.max().item()) + 1
+    W = torch.zeros((k, n), dtype=X.dtype, device=X.device, requires_grad=True)
+
+    for _ in range(epochs):
+        X_batches = torch.split(X, batch_size)
+        y_batches = torch.split(y, batch_size)
+
+        for X_batch, y_batch in zip(X_batches, y_batches):
+            y_pred = X_batch @ W.T
+            loss = cross_entropy_loss(y_pred, y_batch)
+            loss.backward()
+
+            with torch.no_grad():
+                W -= step_size * W.grad
+
+            W.grad.zero_()
+
+    return W
 
 
 @app.function(hide_code=True)
@@ -859,13 +904,25 @@ def _():
 @app.cell(hide_code=True)
 def _():
     step_size_slider = mo.ui.slider(
-        start=0.01, stop=1.0, step=0.01, value=0.1, label="Step size", show_value=True, debounce=True
+        start=0.01,
+        stop=1.0,
+        step=0.01,
+        value=0.1,
+        label="Step size",
+        show_value=True,
+        debounce=True,
     )
     epochs_slider = mo.ui.slider(
         start=1, stop=50, step=1, value=5, label="Epochs", show_value=True, debounce=True
     )
     batch_size_slider = mo.ui.slider(
-        start=10, stop=1000, step=10, value=100, label="Batch size", show_value=True, debounce=True
+        start=10,
+        stop=1000,
+        step=10,
+        value=100,
+        label="Batch size",
+        show_value=True,
+        debounce=True,
     )
     return batch_size_slider, epochs_slider, step_size_slider
 
@@ -891,7 +948,8 @@ def _(
     y_test,
 ):
     W = train_sgd(
-        X, y_data,
+        X,
+        y_data,
         step_size=step_size_slider.value,
         epochs=epochs_slider.value,
         batch_size=batch_size_slider.value,
